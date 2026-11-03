@@ -16,11 +16,27 @@ main{max-width:1000px;margin:0 auto;padding:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
 .k{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:18px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;font-weight:600;font-size:19px;cursor:pointer}
 .k span{font-size:40px}
+.screen{display:none;padding:0 16px}main.screen{padding:16px}.screen.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;max-width:440px;margin:24px auto}
+.card h1{font-size:24px;margin:0 0 16px}
+input{width:100%;font-size:20px;padding:16px;border-radius:14px;border:2px solid var(--line);background:var(--bg);color:var(--text);margin:0 0 14px}
+.msg{font-size:17px;margin:8px 0 0;min-height:24px}.ok{color:#16a34a}.bad{color:#dc2626}
+.ghost{border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;padding:8px}
 .cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:0 0 18px;padding:20px;border:0;border-radius:16px;background:var(--accent);color:#fff;font-size:20px;font-weight:700}
 </style></head><body>
 <header><div class="brand"><div class="logo">NB</div>NOVA BAT</div>
-<div class="right"><select id="lang" aria-label="Langue"></select><div class="avatar">OZ</div></div></header>
-<main>
+<div class="right"><select id="lang" aria-label="Langue"></select><div class="avatar" id="avatar">?</div></div></header>
+<section class="screen" id="s-login"><div class="card">
+<h1>🔑 <span data-t="login_title"></span></h1>
+<input id="email" type="email" autocomplete="email" inputmode="email" data-ph="email">
+<button class="cta" id="btn-login">✉️ <span data-t="send_link"></span></button>
+<p class="msg" id="login-msg"></p></div></section>
+<section class="screen" id="s-setup"><div class="card">
+<h1>🏢 <span data-t="setup_title"></span></h1>
+<input id="company" type="text" data-ph="company_name">
+<button class="cta" id="btn-create"><span data-t="create"></span></button>
+<p class="msg" id="setup-msg"></p></div></section>
+<main class="screen" id="s-home">
 <button class="cta" data-say="quick">🧾 <span data-t="quick"></span></button>
 <div class="row"><h2 data-t="modules"></h2><button class="say" data-say="modules" aria-label="🔊">🔊</button></div>
 <div class="grid">
@@ -32,7 +48,10 @@ main{max-width:1000px;margin:0 auto;padding:16px}
 <div class="k" data-say="rentals"><span>🚜</span><b data-t="rentals"></b></div>
 <div class="k" data-say="purchases"><span>🛒</span><b data-t="purchases"></b></div>
 <div class="k" data-say="reports"><span>📊</span><b data-t="reports"></b></div>
-</div></main>
+</div>
+<p style="text-align:center"><button class="ghost" id="btn-logout">↩ <span data-t="logout"></span></button></p></main>
+<script src="vendor/supabase.min.js"></script>
+<script src="config.js"></script>
 <script src="i18n.js"></script>
 <script>
 const sel=document.getElementById('lang');let cur='tr';
@@ -41,11 +60,41 @@ if(!I18N[cur])cur='tr';
 for(const [k,v] of Object.entries(I18N)){const o=document.createElement('option');o.value=k;o.textContent=v._flag+' '+v._name;sel.appendChild(o)}
 function apply(l){const t=I18N[l];cur=l;sel.value=l;document.documentElement.lang=l;document.documentElement.dir=t._dir||'ltr';
 document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t[e.dataset.t]||I18N.fr[e.dataset.t]);
+document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t[e.dataset.ph]||I18N.fr[e.dataset.ph]);
 try{localStorage.setItem('lang',l)}catch(e){}}
 sel.onchange=()=>apply(sel.value);
 // Sesli okuma: başlığa veya kutuya dokununca seçili dilde okur
 document.querySelectorAll('[data-say]').forEach(e=>e.addEventListener('click',()=>{
 if(!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(I18N[cur][e.dataset.say]);u.lang=cur;speechSynthesis.cancel();speechSynthesis.speak(u)}));
 apply(cur);
+// --- Supabase: giriş ve şirket kurulumu ---
+const T=k=>I18N[cur][k]||I18N.fr[k];
+const sb=supabase.createClient(NB_CONFIG.supabaseUrl,NB_CONFIG.supabaseKey);
+const show=id=>document.querySelectorAll('.screen').forEach(e=>e.classList.toggle('on',e.id===id));
+async function route(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){show('s-login');return}
+  const em=session.user.email||'';document.getElementById('avatar').textContent=em.slice(0,2).toUpperCase();
+  const {data:m}=await sb.from('memberships').select('company_id,role,companies(name)').limit(1);
+  if(!m||!m.length){show('s-setup');return}
+  document.querySelector('.brand').lastChild.textContent=m[0].companies?.name||'NOVA BAT';
+  show('s-home');
+}
+document.getElementById('btn-login').onclick=async()=>{
+  const email=document.getElementById('email').value.trim(),msg=document.getElementById('login-msg');
+  if(!email)return;
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  msg.className='msg '+(error?'bad':'ok');msg.textContent=error?T('error')+' ('+error.message+')':T('link_sent');
+};
+document.getElementById('btn-create').onclick=async()=>{
+  const name=document.getElementById('company').value.trim(),msg=document.getElementById('setup-msg');
+  if(!name)return;
+  const {error}=await sb.rpc('create_company',{p_name:name});
+  if(error){msg.className='msg bad';msg.textContent=T('error')+' ('+error.message+')';return}
+  route();
+};
+document.getElementById('btn-logout').onclick=async()=>{await sb.auth.signOut();route()};
+sb.auth.onAuthStateChange(()=>route());
+route();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script></body></html>
