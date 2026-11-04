@@ -26,6 +26,9 @@ input{width:100%;font-size:20px;padding:16px;border-radius:14px;border:2px solid
 .list li small{display:block;color:var(--muted);font-size:15px;margin-top:4px}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 14px}.bar h1{font-size:22px;margin:0}
 .btn2{font-size:18px;padding:12px 16px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+.chk{display:flex;align-items:center;gap:10px;font-size:18px;padding:10px 0}.chk input{width:24px;height:24px;margin:0}
+.x{float:right;border:0;background:none;font-size:20px;color:#dc2626;cursor:pointer}
+label.lbl{display:block;font-size:16px;color:var(--muted);margin:6px 0}
 .cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:0 0 18px;padding:20px;border:0;border-radius:16px;background:var(--accent);color:#fff;font-size:20px;font-weight:700}
 </style></head><body>
 <header><div class="brand"><div class="logo">NB</div>NOVA BAT</div>
@@ -41,7 +44,7 @@ input{width:100%;font-size:20px;padding:16px;border-radius:14px;border:2px solid
 <button class="cta" id="btn-create"><span data-t="create"></span></button>
 <p class="msg" id="setup-msg"></p></div></section>
 <main class="screen" id="s-home">
-<button class="cta" data-say="quick">🧾 <span data-t="quick"></span></button>
+<button class="cta" data-say="quick" id="btn-quick">🧾 <span data-t="quick"></span></button>
 <div class="row"><h2 data-t="modules"></h2><button class="say" data-say="modules" aria-label="🔊">🔊</button></div>
 <div class="grid">
 <div class="k" data-say="sites"><span>🏗️</span><b data-t="sites"></b></div>
@@ -58,7 +61,21 @@ input{width:100%;font-size:20px;padding:16px;border-radius:14px;border:2px solid
 <div class="bar"><button class="btn2" id="btn-back">← <span data-t="back"></span></button><h1 id="list-title"></h1><button class="btn2" id="btn-add">＋ <span data-t="add"></span></button></div>
 <form class="card" id="list-form" style="display:none;margin:0 0 16px"></form>
 <ul class="list" id="list-items"></ul></div></section>
+<section class="screen" id="s-order"><div style="max-width:700px;margin:16px auto">
+<div class="bar"><button class="btn2" data-home>← <span data-t="back"></span></button><h1>🧾 <span data-t="quick"></span></h1><span></span></div>
+<div class="card" style="margin:0 0 14px">
+<select id="o-customer" style="width:100%;margin:0 0 10px"></select>
+<div id="o-emails"></div></div>
+<div class="card" style="margin:0 0 14px">
+<select id="o-product" style="width:100%;margin:0 0 10px"></select>
+<input id="o-qty" type="text" inputmode="decimal" data-ph="qty">
+<button class="btn2" id="o-add" type="button" style="width:100%">＋ <span data-t="add_line"></span></button>
+<ul class="list" id="o-lines" style="margin-top:14px"></ul>
+<p id="o-total" style="text-align:end;font-size:18px"></p></div>
+<button class="cta" id="o-send">📤 <span data-t="send"></span></button>
+<p class="msg" id="o-msg"></p></div></section>
 <script src="vendor/supabase.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="i18n.js"></script>
 <script>
@@ -133,7 +150,12 @@ document.getElementById('list-form').onsubmit=async ev=>{
   if(error){alert(T('error')+' ('+error.message+')');return}
   openList(curList);
 };
+document.getElementById('btn-quick').addEventListener('click',()=>openOrder());
+document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>show('s-home'));
 sb.auth.onAuthStateChange(()=>route());
 route();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+<script src="order.js"></script>
+<script>
 </script></body></html>
